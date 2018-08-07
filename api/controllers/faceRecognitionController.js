@@ -4,7 +4,11 @@ exports.addFace = function(request, response){
 
     var identity = parseInt(request.body.identity);
 
-    var data = fs.readFileSync(image.path);
+    const imagePath = image.path;
+
+    const pythonProcess = spawn('python',["../../resize.py", imagePath]);
+
+    var data = fs.readFileSync(imagePath);
 
     var b64Image = "data:image/jpeg;base64," + data.toString("base64");
 

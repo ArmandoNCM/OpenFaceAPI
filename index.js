@@ -6,6 +6,8 @@ socket = new WebSocket("wss:10.0.0.1:9000");
 
 fs = require("fs");
 
+spawn = require("child_process").spawnSync;
+
 var multer  = require('multer')
 
 upload = multer({ dest: 'uploads/' })
