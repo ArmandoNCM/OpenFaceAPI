@@ -2,7 +2,15 @@ exports.addFace = function(request, response){
 
     var image = request.file;
 
-    var identity = parseInt(request.body.identity);
+    var name = request.body.name;
+
+    var identity;
+
+    if (name != null && identities.has(name)){
+        identity = parseInt(identities.get(name))
+    } else {
+        identity = -1
+    }
 
     const imagePath = image.path;
 
@@ -41,9 +49,9 @@ exports.addFace = function(request, response){
 
 exports.setTrainingState = function(request, response){
 
-    var isTrainingValue = request.body.isTraining;
+    var newIsTrainingValue = request.body.isTraining;
 
-    var id = request.body.id;
+    var name = request.body.name;
 
     var responseBody;
 
@@ -51,22 +59,26 @@ exports.setTrainingState = function(request, response){
 
         var systemMessage;
 
-        systemMessage = {
-            'type' : 'TRAINING',
-            'val' : isTrainingValue
-        };
-        socket.send(JSON.stringify(systemMessage));
+        if (newIsTrainingValue && !identities.has(name)){
 
-        if (isTrainingValue){
+            identities.set(name, identities.size)
+
             systemMessage = {
                 'type' : 'ADD_PERSON',
-                'val' : id
+                'val' : name
             }
             socket.send(JSON.stringify(systemMessage));
         }
+
+        systemMessage = {
+            'type' : 'TRAINING',
+            'val' : newIsTrainingValue
+        };
+        socket.send(JSON.stringify(systemMessage));
+        
         responseBody = {
             success : true,
-            message : "Training Active State: " + String(isTrainingValue)
+            message : "Training Active State: " + String(newIsTrainingValue)
         };
     } else {
         

@@ -309,7 +309,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                         identity = 0
                     elif self.svm:
                         identity = self.svm.predict(rep)[0]
-                        print("Predicted identity value")
+                        print("Predicted identity value: {}".format(identity))
                     else:
                         print("Something went wrong predicting")
                         identity = -1

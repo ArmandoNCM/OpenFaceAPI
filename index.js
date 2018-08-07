@@ -8,6 +8,8 @@ fs = require("fs");
 
 spawnSync = require("child_process").spawnSync;
 
+identities = new Map();
+
 var multer  = require('multer')
 
 upload = multer({ dest: 'uploads/' })
