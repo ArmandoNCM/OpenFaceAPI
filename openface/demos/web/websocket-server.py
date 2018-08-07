@@ -173,8 +173,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             X.append(img.rep)
             y.append(img.identity)
 
-        # numIdentities = len(set(y + [-1])) - 1
-        numIdentities = len(y)
+        numIdentities = len(set(y + [-1])) - 1
         if numIdentities == 0:
             return None
 
@@ -235,8 +234,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             return
         else:
             (X, y) = d
-            # numIdentities = len(set(y + [-1]))
-            numIdentities = len(y) + 1
+            numIdentities = len(set(y + [-1]))
             if numIdentities <= 1:
                 return
 
