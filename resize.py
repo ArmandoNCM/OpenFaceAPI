@@ -18,7 +18,7 @@ def main():
     color = [0, 0, 0]
     new_im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT,
         value=color)
-    cv2.imwrite(im_pth, new_im)
+    cv2.imwrite("{}.jpg".format(im_pth), new_im)
 
 if __name__ == "__main__":
     main()
