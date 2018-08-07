@@ -309,8 +309,9 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                         identity = 0
                     elif self.svm:
                         identity = self.svm.predict(rep)[0]
+                        print("Predicted identity value")
                     else:
-                        print("hhh")
+                        print("Something went wrong predicting")
                         identity = -1
                     if identity not in identities:
                         identities.append(identity)
@@ -324,10 +325,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     cv2.circle(annotatedFrame, center=landmarks[p], radius=3,
                                color=(102, 204, 255), thickness=-1)
                 if identity == -1:
-                    if len(self.people) == 1:
-                        name = self.people[0]
-                    else:
-                        name = "Unknown"
+                    name = "Unknown"
                 else:
                     name = self.people[identity]
                 print("Predicted: {}".format(name) )
