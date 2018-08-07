@@ -2,7 +2,7 @@ exports.addFace = function(request, response){
 
     var image = request.file;
 
-    var id = request.body.id;
+    var identity = parseInt(request.body.identity);
 
     var data = fs.readFileSync(image.path);
 
@@ -15,7 +15,7 @@ exports.addFace = function(request, response){
         var systemMessage = {
             'type': 'FRAME',
             'dataURL': b64Image,
-            'identity': id
+            'identity': identity
         };
         socket.send(JSON.stringify(systemMessage));
 
@@ -37,21 +37,32 @@ exports.addFace = function(request, response){
 
 exports.setTrainingState = function(request, response){
 
-    var value = request.body.isTraining;
+    var isTrainingValue = request.body.isTraining;
+
+    var id = request.body.id;
 
     var responseBody;
 
     if (socket != null) {
 
-        var systemMessage = {
+        var systemMessage;
+
+        systemMessage = {
             'type' : 'TRAINING',
-            'val' : value
+            'val' : isTrainingValue
         };
         socket.send(JSON.stringify(systemMessage));
 
+        if (isTrainingValue){
+            systemMessage = {
+                'type' : 'ADD_PERSON',
+                'val' : id
+            }
+            socket.send(JSON.stringify(systemMessage));
+        }
         responseBody = {
             success : true,
-            message : "Training Active State: " + String(value)
+            message : "Training Active State: " + String(isTrainingValue)
         };
     } else {
         
