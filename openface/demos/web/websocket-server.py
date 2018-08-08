@@ -245,7 +245,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                  'gamma': [0.001, 0.0001],
                  'kernel': ['rbf']}
             ]
-            self.svm = GridSearchCV(SVC(C=1), param_grid, cv=5).fit(X, y)
+            self.svm = GridSearchCV(SVC(C=1, probability=True), param_grid, cv=5).fit(X, y)
 
     def processFrame(self, dataURL, identity):
         head = "data:image/jpeg;base64,"
@@ -305,10 +305,12 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 else:
                     if len(self.people) == 0:
                         identity = -1
-                    elif len(self.people) == 1:
-                        identity = 0
+                    # elif len(self.people) == 1:
+                    #     identity = 0
                     elif self.svm:
-                        identity = self.svm.predict(rep)[0]
+                        probabilities = self.svm.predict_proba(rep)
+                        for probability in probabilities:
+                            print("Probability {}".format(probability))
                         print("Predicted identity value: {}".format(identity))
                     else:
                         print("Something went wrong predicting")
