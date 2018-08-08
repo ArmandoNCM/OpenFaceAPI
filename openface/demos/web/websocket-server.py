@@ -71,6 +71,7 @@ parser.add_argument('--unknown', type=bool, default=False,
                     help='Try to predict unknown people')
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
+parser.add_argument('--threshold', type=float, default=0.75)
 
 args = parser.parse_args()
 
@@ -309,9 +310,16 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     #     identity = 0
                     elif self.svm:
                         probabilities = self.svm.predict_proba(rep)[0]
-                        print("Test {}".format(len(probabilities)))
-                        for probability in probabilities:
-                            print(probability)
+                        highest = 0.0
+                        index = 0
+                        for i in range(len(probabilities)):
+                            if probabilities[i] > highest:
+                                highest = probabilities[i]
+                                index = i
+                            print(probabilities[i])
+                        print("Highest Probability: {}".format(highest))
+                        if highest > 0.75:
+                            identity = index
                         print("Predicted identity value: {}".format(identity))
                     else:
                         print("Something went wrong predicting")
