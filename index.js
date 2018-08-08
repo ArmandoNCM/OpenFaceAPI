@@ -2,7 +2,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
 const WebSocket = require("ws");
 
-socket = new WebSocket("wss:10.0.0.1:9000");
+socket = new WebSocket("wss:localhost:9000");
 
 fs = require("fs");
 
