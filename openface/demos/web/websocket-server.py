@@ -117,11 +117,11 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             msg['type'], len(raw)))
         if msg['type'] == "ALL_STATE":
             self.loadState(msg['images'], msg['training'], msg['people'])
-        elif msg['type'] == "NULL":
-            self.sendMessage('{"type": "NULL"}')
+        #elif msg['type'] == "NULL":
+            #self.sendMessage('{"type": "NULL"}')
         elif msg['type'] == "FRAME":
             self.processFrame(msg['dataURL'], msg['identity'])
-            self.sendMessage('{"type": "PROCESSED"}')
+            #self.sendMessage('{"type": "PROCESSED"}')
         elif msg['type'] == "TRAINING":
             self.training = msg['val']
             if not self.training:
@@ -302,7 +302,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                         "identity": identity,
                         "representation": rep.tolist()
                     }
-                    self.sendMessage(json.dumps(msg))
+                    #self.sendMessage(json.dumps(msg))
                 else:
                     if len(self.people) == 0:
                         identity = -1
@@ -339,6 +339,10 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     name = "Unknown"
                 else:
                     name = self.people[identity]
+                msg = {
+                    "prediction": name
+                }
+                self.sendMessage(json.dumps(msg))
                 print("Predicted: {}".format(name) )
                 cv2.putText(annotatedFrame, name, (bb.left(), bb.top() - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.75,
@@ -349,7 +353,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 "type": "IDENTITIES",
                 "identities": identities
             }
-            self.sendMessage(json.dumps(msg))
+            #self.sendMessage(json.dumps(msg))
 
             plt.figure()
             plt.imshow(annotatedFrame)
@@ -366,7 +370,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 "content": content
             }
             plt.close()
-            self.sendMessage(json.dumps(msg))
+            #self.sendMessage(json.dumps(msg))
 
 
 def main(reactor):
