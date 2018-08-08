@@ -308,9 +308,10 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     # elif len(self.people) == 1:
                     #     identity = 0
                     elif self.svm:
-                        probabilities = self.svm.predict_proba(rep)
+                        probabilities = self.svm.predict_proba(rep)[0]
+                        print("Test {}".format(len(probabilities)))
                         for probability in probabilities:
-                            print("Probability {}".format(probability))
+                            print(probability)
                         print("Predicted identity value: {}".format(identity))
                     else:
                         print("Something went wrong predicting")
