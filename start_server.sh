@@ -6,7 +6,7 @@ killall node
 
 python openface/demos/web/websocket-server.py &
 
-sleep 5
+sleep 15
 
 npm run start &
 
