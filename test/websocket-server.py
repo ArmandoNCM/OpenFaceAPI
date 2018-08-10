@@ -108,20 +108,20 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
 
     def onMessage(self, payload, isBinary):
         raw = payload.decode('utf8')
-        message = json.loads(raw)
+        msg = json.loads(raw)
         print("Received {} message of length {}.".format(
-            message['type'], len(raw)))
-        if message['type'] == "FRAME":
-            self.processFrame(message['image'], message['identity'], message['uuid'])
-        elif message['type'] == "TRAINING":
-            self.training = message['val']
+            msg['type'], len(raw)))
+        if msg['type'] == "FRAME":
+            self.processFrame(msg['dataURL'], msg['identity'])
+        elif msg['type'] == "TRAINING":
+            self.training = msg['val']
             if not self.training:
                 self.trainSVM()
-        elif message['type'] == "ADD_PERSON":
-            self.people.append(message['val'].encode('ascii', 'ignore'))
+        elif msg['type'] == "ADD_PERSON":
+            self.people.append(msg['val'].encode('ascii', 'ignore'))
             print(self.people)
         else:
-            print("Warning: Unknown message type: {}".format(message['type']))
+            print("Warning: Unknown message type: {}".format(msg['type']))
 
     def getData(self):
         X = []
@@ -159,8 +159,10 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             ]
             self.svm = GridSearchCV(SVC(C=1, probability=True), param_grid, cv=5).fit(X, y)
 
-    def processFrame(self, image, identity, uuid):
-        imgdata = base64.b64decode(image)
+    def processFrame(self, dataURL, identity):
+        head = "data:image/jpeg;base64,"
+        assert(dataURL.startswith(head))
+        imgdata = base64.b64decode(dataURL[len(head):])
         imgF = StringIO.StringIO()
         imgF.write(imgdata)
         imgF.seek(0)
@@ -177,12 +179,11 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         bbs = align.getAllFaceBoundingBoxes(rgbFrame)
         if len(bbs) == 0:
             # No faces found
-            message = {
-                'message' : "No faces found",
-                'uuid' : uuid
+            msg = {
+                'message' : "No faces found"
             }
-            self.sendMessage(json.dumps(message))
-            return
+            #self.sendMessage(json.dumps(msg))
+            #return
 
         for bb in bbs:
             
@@ -225,7 +226,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
 
         if not self.training:
 
-            message = {
+            msg = {
                 'unknownFacesCount' : unknownFacesCount
             }
 
@@ -242,11 +243,10 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
 
                     people.add(name)
 
-                message['people'] = list(people)
+                msg['people'] = list(people)
 
-            message['uuid'] = uuid
-            self.sendMessage(json.dumps(message))
-            print("Predicted People: {}".format(str(message['people'])))
+            self.sendMessage(json.dumps(msg))
+            print("Predicted People: {}".format(str(msg['people'])))
 
 def main(reactor):
     log.startLogging(sys.stdout)

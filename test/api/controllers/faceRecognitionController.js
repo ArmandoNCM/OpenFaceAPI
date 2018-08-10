@@ -8,8 +8,6 @@ exports.addFace = function(request, response){
 
     var name = request.body.name;
 
-    var uuid = generateUUID();
-
     var identity;
 
     if (name != null && identities.has(name)){
@@ -24,7 +22,7 @@ exports.addFace = function(request, response){
 
     var data = fs.readFileSync(imagePath + ".jpg");
 
-    var b64Image = data.toString("base64");
+    var b64Image = "data:image/jpeg;base64," + data.toString("base64");
 
     var socketInputCount = 0;
 
@@ -34,9 +32,8 @@ exports.addFace = function(request, response){
 
         var systemMessage = {
             'type': 'FRAME',
-            'image': b64Image,
-            'identity': identity,
-            'uuid' : uuid
+            'dataURL': b64Image,
+            'identity': identity
         };
         socket.send(JSON.stringify(systemMessage));
 
@@ -54,36 +51,35 @@ exports.addFace = function(request, response){
 			
         } else {
 
-            function onMessageReceived(data) {
+            socket.on('message', function incoming(data) {
                 
                 socketInputCount++;
                 console.log("Socket Input Count: " + socketInputCount);
-                console.log("Message Received from Python: " + JSON.stringify(data));
+                console.log("Message Received from Python: " + data);
 
-                if (!responseServed){
-                    if (data.hasOwnProperty("people")){
+                var object = JSON.parse(data);
+                if (!responseServed && object.hasOwnProperty("people")){
 
-                        responseBody = {
-                            success : true,
-                            predictions : data.people,
-                            unknownFacesCount : data.unknownFacesCount
-                        };
+                    responseBody = {
+                        success : true,
+                        predictions : object.people,
+                        unknownFacesCount : object.unknownFacesCount
+                    };
+            
+                    response.json(responseBody);
+                    responseServed = true;
+                } 
+                /*else {
+                    responseBody = {
+                        success : true,
+                        message : object.message
+                    };
+            
+                    response.json(responseBody);
+                    responseServed = true;
+                }*/
                 
-                        response.json(responseBody);
-                        responseServed = true;
-                    } else {
-                        responseBody = {
-                            success : true,
-                            message : data.message
-                        };
-                
-                        response.json(responseBody);
-                        responseServed = true;
-                    }
-                }
-                registeredCallbacks.delete(uuid);
-            }
-            registeredCallbacks.set(uuid, onMessageReceived);
+            });
         }
     } else {
         
