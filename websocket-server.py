@@ -177,6 +177,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         if not self.training:
             annotatedFrame = np.copy(buf)
 
+        unknownFacesCount = 0
         identities = []
         bbs = align.getAllFaceBoundingBoxes(rgbFrame)
         #bb = align.getLargestFaceBoundingBox(rgbFrame)
@@ -195,7 +196,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 identity = self.images[phash].identity
             else:
                 rep = net.forward(alignedFace)
-                # print(rep)
+
                 if self.training:
                     self.images[phash] = Face(rep, identity)
                 else:
@@ -213,34 +214,40 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                         print("Highest Probability: {}".format(highest))
                         if highest > args.threshold:
                             identity = index
+                        else:
+                            unknownFacesCount = unknownFacesCount + 1
+                            identity = -1
                         print("Predicted identity value: {}".format(identity))
                     else:
                         print("Something went wrong predicting")
                         identity = -1
+
                     if identity not in identities:
                         identities.append(identity)
 
-            if not self.training:
-                bl = (bb.left(), bb.bottom())
-                tr = (bb.right(), bb.top())
-                cv2.rectangle(annotatedFrame, bl, tr, color=(153, 255, 204),
-                              thickness=3)
-                for p in openface.AlignDlib.OUTER_EYES_AND_NOSE:
-                    cv2.circle(annotatedFrame, center=landmarks[p], radius=3,
-                               color=(102, 204, 255), thickness=-1)
-                if identity == -1:
-                    name = "Unknown"
-                else:
-                    name = self.people[identity]
-                msg = {
-                    "prediction": name
-                }
-                self.sendMessage(json.dumps(msg))
-                print("Predicted: {}".format(name) )
-                cv2.putText(annotatedFrame, name, (bb.left(), bb.top() - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.75,
-                            color=(152, 255, 204), thickness=2)
+        if not self.training:
 
+            msg = {
+                'unknownFacesCount' : unknownFacesCount
+            }
+
+            if len(identities) > 0:
+
+                people = set()
+                
+                for identity in identities:
+
+                    if identity == -1:
+                        name = "Unknown"
+                    else:
+                        name = self.people[identity]
+
+                    people.add(name)
+
+                msg['people'] = list(people)
+
+            self.sendMessage(json.dumps(msg))
+            print("Predicted People: {}".format(str(msg['people'])))
 
 def main(reactor):
     log.startLogging(sys.stdout)

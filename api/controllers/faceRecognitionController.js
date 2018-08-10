@@ -52,14 +52,12 @@ exports.addFace = function(request, response){
             socket.on('message', function incoming(data) {
                 
                 var object = JSON.parse(data);
-                if (!responseServed && object.hasOwnProperty("prediction")){
+                if (!responseServed && object.hasOwnProperty("people")){
 
                     responseBody = {
                         success : true,
-                        message : "Picture added"
+                        prediction : object.people
                     };
-
-                    responseBody.prediction = object.prediction;
             
                     response.json(responseBody);
                     responseServed = true;
