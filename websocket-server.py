@@ -17,7 +17,7 @@
 import os
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(fileDir, "..", ".."))
+#sys.path.append(os.path.join(fileDir, "..", ".."))
 
 import txaio
 txaio.use_twisted()
@@ -40,24 +40,18 @@ import StringIO
 import urllib
 import base64
 
-from sklearn.decomposition import PCA
 from sklearn.grid_search import GridSearchCV
 from sklearn.manifold import TSNE
 from sklearn.svm import SVC
 
-import matplotlib as mpl
-mpl.use('Agg')
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
-
 import openface
 
-modelDir = os.path.join(fileDir, '..', '..', 'models')
+modelDir = os.path.join(fileDir, 'openface', 'models')
 dlibModelDir = os.path.join(modelDir, 'dlib')
 openfaceModelDir = os.path.join(modelDir, 'openface')
 # For TLS connections
-tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
-tls_key = os.path.join(fileDir, 'tls', 'server.key')
+tls_crt = os.path.join(fileDir, 'certificates', 'server.crt')
+tls_key = os.path.join(fileDir, 'certificates', 'server.key')
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--dlibFacePredictor', type=str, help="Path to dlib's face predictor.",
@@ -71,7 +65,7 @@ parser.add_argument('--unknown', type=bool, default=False,
                     help='Try to predict unknown people')
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
-parser.add_argument('--threshold', type=float, default=0.75)
+parser.add_argument('--threshold', type=float, default=0.75, help='Prediction precision percetage threshold')
 
 args = parser.parse_args()
 
@@ -100,8 +94,6 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         self.training = True
         self.people = []
         self.svm = None
-        if args.unknown:
-            self.unknownImgs = np.load("./examples/web/unknown.npy")
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -109,19 +101,18 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
 
     def onOpen(self):
         print("WebSocket connection open.")
+        
+    def onClose(self, wasClean, code, reason):
+        print("WebSocket connection closed: {0}".format(reason))
+
 
     def onMessage(self, payload, isBinary):
         raw = payload.decode('utf8')
         msg = json.loads(raw)
         print("Received {} message of length {}.".format(
             msg['type'], len(raw)))
-        if msg['type'] == "ALL_STATE":
-            self.loadState(msg['images'], msg['training'], msg['people'])
-        #elif msg['type'] == "NULL":
-            #self.sendMessage('{"type": "NULL"}')
-        elif msg['type'] == "FRAME":
+        if msg['type'] == "FRAME":
             self.processFrame(msg['dataURL'], msg['identity'])
-            #self.sendMessage('{"type": "PROCESSED"}')
         elif msg['type'] == "TRAINING":
             self.training = msg['val']
             if not self.training:
@@ -129,43 +120,8 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         elif msg['type'] == "ADD_PERSON":
             self.people.append(msg['val'].encode('ascii', 'ignore'))
             print(self.people)
-        elif msg['type'] == "UPDATE_IDENTITY":
-            h = msg['hash'].encode('ascii', 'ignore')
-            if h in self.images:
-                self.images[h].identity = msg['idx']
-                if not self.training:
-                    self.trainSVM()
-            else:
-                print("Image not found.")
-        elif msg['type'] == "REMOVE_IMAGE":
-            h = msg['hash'].encode('ascii', 'ignore')
-            if h in self.images:
-                del self.images[h]
-                if not self.training:
-                    self.trainSVM()
-            else:
-                print("Image not found.")
-        elif msg['type'] == 'REQ_TSNE':
-            self.sendTSNE(msg['people'])
         else:
             print("Warning: Unknown message type: {}".format(msg['type']))
-
-    def onClose(self, wasClean, code, reason):
-        print("WebSocket connection closed: {0}".format(reason))
-
-    def loadState(self, jsImages, training, jsPeople):
-        self.training = training
-
-        for jsImage in jsImages:
-            h = jsImage['hash'].encode('ascii', 'ignore')
-            self.images[h] = Face(np.array(jsImage['representation']),
-                                  jsImage['identity'])
-
-        for jsPerson in jsPeople:
-            self.people.append(jsPerson.encode('ascii', 'ignore'))
-
-        if not training:
-            self.trainSVM()
 
     def getData(self):
         X = []
@@ -178,54 +134,9 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         if numIdentities == 0:
             return None
 
-        if args.unknown:
-            numUnknown = y.count(-1)
-            numIdentified = len(y) - numUnknown
-            numUnknownAdd = (numIdentified / numIdentities) - numUnknown
-            if numUnknownAdd > 0:
-                print("+ Augmenting with {} unknown images.".format(numUnknownAdd))
-                for rep in self.unknownImgs[:numUnknownAdd]:
-                    # print(rep)
-                    X.append(rep)
-                    y.append(-1)
-
         X = np.vstack(X)
         y = np.array(y)
         return (X, y)
-
-    def sendTSNE(self, people):
-        d = self.getData()
-        if d is None:
-            return
-        else:
-            (X, y) = d
-
-        X_pca = PCA(n_components=50).fit_transform(X, X)
-        tsne = TSNE(n_components=2, init='random', random_state=0)
-        X_r = tsne.fit_transform(X_pca)
-
-        yVals = list(np.unique(y))
-        colors = cm.rainbow(np.linspace(0, 1, len(yVals)))
-
-        # print(yVals)
-
-        plt.figure()
-        for c, i in zip(colors, yVals):
-            name = "Unknown" if i == -1 else people[i]
-            plt.scatter(X_r[y == i, 0], X_r[y == i, 1], c=c, label=name)
-            plt.legend()
-
-        imgdata = StringIO.StringIO()
-        plt.savefig(imgdata, format='png')
-        imgdata.seek(0)
-
-        content = 'data:image/png;base64,' + \
-                  urllib.quote(base64.b64encode(imgdata.buf))
-        msg = {
-            "type": "TSNE_DATA",
-            "content": content
-        }
-        self.sendMessage(json.dumps(msg))
 
     def trainSVM(self):
         print("+ Training SVM on {} labeled images.".format(len(self.images)))
@@ -266,10 +177,6 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         if not self.training:
             annotatedFrame = np.copy(buf)
 
-        # cv2.imshow('frame', rgbFrame)
-        # if cv2.waitKey(1) & 0xFF == ord('q'):
-        #     return
-
         identities = []
         bbs = align.getAllFaceBoundingBoxes(rgbFrame)
         #bb = align.getLargestFaceBoundingBox(rgbFrame)
@@ -291,23 +198,9 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 # print(rep)
                 if self.training:
                     self.images[phash] = Face(rep, identity)
-                    # TODO: Transferring as a string is suboptimal.
-                    # content = [str(x) for x in cv2.resize(alignedFace, (0,0),
-                    # fx=0.5, fy=0.5).flatten()]
-                    content = [str(x) for x in alignedFace.flatten()]
-                    msg = {
-                        "type": "NEW_IMAGE",
-                        "hash": phash,
-                        "content": content,
-                        "identity": identity,
-                        "representation": rep.tolist()
-                    }
-                    #self.sendMessage(json.dumps(msg))
                 else:
                     if len(self.people) == 0:
                         identity = -1
-                    # elif len(self.people) == 1:
-                    #     identity = 0
                     elif self.svm:
                         probabilities = self.svm.predict_proba(rep)[0]
                         highest = 0.0
@@ -347,30 +240,6 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 cv2.putText(annotatedFrame, name, (bb.left(), bb.top() - 10),
                             cv2.FONT_HERSHEY_SIMPLEX, fontScale=0.75,
                             color=(152, 255, 204), thickness=2)
-
-        if not self.training:
-            msg = {
-                "type": "IDENTITIES",
-                "identities": identities
-            }
-            #self.sendMessage(json.dumps(msg))
-
-            plt.figure()
-            plt.imshow(annotatedFrame)
-            plt.xticks([])
-            plt.yticks([])
-
-            imgdata = StringIO.StringIO()
-            plt.savefig(imgdata, format='png')
-            imgdata.seek(0)
-            content = 'data:image/png;base64,' + \
-                urllib.quote(base64.b64encode(imgdata.buf))
-            msg = {
-                "type": "ANNOTATED",
-                "content": content
-            }
-            plt.close()
-            #self.sendMessage(json.dumps(msg))
 
 
 def main(reactor):
