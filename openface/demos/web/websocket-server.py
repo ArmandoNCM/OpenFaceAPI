@@ -271,9 +271,9 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         #     return
 
         identities = []
-        # bbs = align.getAllFaceBoundingBoxes(rgbFrame)
-        bb = align.getLargestFaceBoundingBox(rgbFrame)
-        bbs = [bb] if bb is not None else []
+        bbs = align.getAllFaceBoundingBoxes(rgbFrame)
+        #bb = align.getLargestFaceBoundingBox(rgbFrame)
+        #bbs = [bb] if bb is not None else []
         for bb in bbs:
             # print(len(bbs))
             landmarks = align.findLandmarks(rgbFrame, bb)
@@ -318,7 +318,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                                 index = i
                             print(probabilities[i])
                         print("Highest Probability: {}".format(highest))
-                        if highest > 0.75:
+                        if highest > args.threshold:
                             identity = index
                         print("Predicted identity value: {}".format(identity))
                     else:
