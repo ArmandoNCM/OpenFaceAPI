@@ -28,49 +28,34 @@ exports.addFace = function(request, response){
         };
         socket.send(JSON.stringify(systemMessage));
 
-        if (name){
+        function onMessageReceived(data) {
+            
+            console.log("Message Received from Python: " + JSON.stringify(data));
+
             if (!responseServed){
+                if (data.hasOwnProperty("people")){
 
-                responseBody = {
-                    success : true,
-                    message : "Picture added"
-                };
-
-                responseServed = true;
-                response.json(responseBody);
-            }
-			
-        } else {
-
-            function onMessageReceived(data) {
-                
-                console.log("Message Received from Python: " + JSON.stringify(data));
-
-                if (!responseServed){
-                    if (data.hasOwnProperty("people")){
-
-                        responseBody = {
-                            success : true,
-                            predictions : data.people,
-                            unknownFacesCount : data.unknownFacesCount
-                        };
-                
-                        response.json(responseBody);
-                        responseServed = true;
-                    } else {
-                        responseBody = {
-                            success : true,
-                            message : data.message
-                        };
-                
-                        response.json(responseBody);
-                        responseServed = true;
-                    }
+                    responseBody = {
+                        success : true,
+                        predictions : data.people,
+                        unknownFacesCount : data.unknownFacesCount
+                    };
+            
+                    response.json(responseBody);
+                    responseServed = true;
+                } else {
+                    responseBody = {
+                        success : true,
+                        message : data.message
+                    };
+            
+                    response.json(responseBody);
+                    responseServed = true;
                 }
-                registeredCallbacks.delete(uuid);
             }
-            registeredCallbacks.set(uuid, onMessageReceived);
+            registeredCallbacks.delete(uuid);
         }
+        registeredCallbacks.set(uuid, onMessageReceived);
     } else {
         
         responseBody = {

@@ -78,7 +78,6 @@ class Face:
 
     def __init__(self, rep, identity):
         self.rep = rep
-        print(rep) # TODO remove this
         self.identity = identity
 
     def __repr__(self):
@@ -91,9 +90,9 @@ class Face:
 class OpenFaceServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(OpenFaceServerProtocol, self).__init__()
+        print("Creating OpenFaceServerProtocol instance")
         self.faces = {}
         self.identityNames = {}
-        self.people = []
         self.svm = None
 
     def onConnect(self, request):
@@ -154,7 +153,6 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         return (X, y)
 
     def trainSVM(self):
-        print("+ Training SVM on {} labeled images.".format(len(self.faces)))
         d = self.getData()
         if d is None:
             self.svm = None
@@ -198,8 +196,9 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             }
             self.sendMessage(json.dumps(message))
             return
-        elif len(bbs) > 1 and name:
+        elif len(bbs) > 1 and name != None:
             # More than one face detected, cannot use picture to train
+            print("More than one face detected, cannot use picture to train")
             message = {
                 'message' : "More than one face detected, cannot use picture to train",
                 'uuid' : uuid
@@ -209,11 +208,12 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
 
         identity = -1
         if name != None:
+            name = name.encode('ascii', 'ignore')
             if name in self.identityNames:
                 identity = self.identityNames[name]
             else:
                 identity = len(self.identityNames)
-                self.identityNames[name] = identity
+                
 
         for bb in bbs:
             
@@ -229,7 +229,9 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 rep = net.forward(alignedFace)
 
                 if name and len(bbs) == 1:
+                    self.identityNames[name] = identity
                     self.faces[phash] = Face(rep, identity)
+                    self.trainSVM()
                     message = {
                         'message' : "Face added",
                         'uuid' : uuid
@@ -237,9 +239,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     self.sendMessage(json.dumps(message))
                     return
                 else:
-                    if len(self.people) == 0:
-                        identity = -1
-                    elif self.svm:
+                    if self.svm:
                         probabilities = self.svm.predict_proba(rep)[0]
                         highest = 0.0
                         index = 0
@@ -277,7 +277,10 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     if identity == -1:
                         name = "Unknown"
                     else:
-                        name = self.people[identity]
+                        for key, value in self.identityNames.items():
+                            if value == identity:
+                                name = key
+                                break
 
                     people.add(name)
 
