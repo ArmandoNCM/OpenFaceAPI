@@ -74,19 +74,6 @@ net = openface.TorchNeuralNet(args.networkModel, imgDim=args.imgDim,
                               cuda=args.cuda)
 
 
-class Face:
-
-    def __init__(self, rep, identity):
-        self.rep = rep
-        self.identity = identity
-
-    def __repr__(self):
-        return "{{id: {}, rep[0:5]: {}}}".format(
-            str(self.identity),
-            self.rep[0:5]
-        )
-
-
 class OpenFaceServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(OpenFaceServerProtocol, self).__init__()
@@ -103,6 +90,9 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
+        facesJson = json.dumps(self.faces)
+        identityNamesJson = json.dumps(self.identityNames)
+
 
 
     def onMessage(self, payload, isBinary):
@@ -124,14 +114,10 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         X = [] # Representations
         y = [] # Identities
 
-        # for img in self.faces.values():
-        #     X.append(img.rep)
-        #     y.append(img.identity)
-
         facesDictionary = {}
         for img in self.faces.values():
-            representation = img.rep
-            identity = img.identity
+            representation = img['representation']
+            identity = img['identity']
             if identity not in facesDictionary:
                 facesDictionary[identity] = []
             representationList = facesDictionary[identity]
@@ -223,14 +209,17 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             phash = str(imagehash.phash(Image.fromarray(alignedFace)))
             if phash in self.faces:
                 # Face has already been registered
-                identity = self.faces[phash].identity
+                identity = self.faces[phash]['identity']
             else:
                 #
-                rep = net.forward(alignedFace)
+                representation = net.forward(alignedFace)
 
                 if name and len(bbs) == 1:
                     self.identityNames[name] = identity
-                    self.faces[phash] = Face(rep, identity)
+                    self.faces[phash] = {
+                        'representation' : representation,
+                        'identity' : identity
+                    }
                     self.trainSVM()
                     message = {
                         'message' : "Face added",
@@ -240,7 +229,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     return
                 else:
                     if self.svm:
-                        probabilities = self.svm.predict_proba(rep)[0]
+                        probabilities = self.svm.predict_proba(representation)[0]
                         highest = 0.0
                         index = 0
                         for i in range(len(probabilities)):
