@@ -2,31 +2,19 @@ exports.addFace = function(request, response){
 
     var responseServed = false;
 
-    var isTraining = request.body.training;
-
     var image = request.file;
 
     var name = request.body.name;
 
     var uuid = generateUUID();
 
-    var identity;
-
-    if (name != null && identities.has(name)){
-        identity = parseInt(identities.get(name))
-    } else {
-        identity = -1
-    }
-
     const imagePath = image.path;
 
-    const pythonProcess = spawnSync('python',["./resize.py", imagePath]);
+    spawnSync('python',["./resize.py", imagePath]);
 
     var data = fs.readFileSync(imagePath + ".jpg");
 
     var b64Image = data.toString("base64");
-
-    var socketInputCount = 0;
 
     var responseBody;
 
@@ -35,12 +23,12 @@ exports.addFace = function(request, response){
         var systemMessage = {
             'type': 'FRAME',
             'image': b64Image,
-            'identity': identity,
+            'name' : name,
             'uuid' : uuid
         };
         socket.send(JSON.stringify(systemMessage));
 
-        if (isTraining){
+        if (name){
             if (!responseServed){
 
                 responseBody = {
@@ -56,8 +44,6 @@ exports.addFace = function(request, response){
 
             function onMessageReceived(data) {
                 
-                socketInputCount++;
-                console.log("Socket Input Count: " + socketInputCount);
                 console.log("Message Received from Python: " + JSON.stringify(data));
 
                 if (!responseServed){
@@ -112,48 +98,4 @@ exports.addFace = function(request, response){
         
     }, 5000);
 
-}
-
-exports.setTrainingState = function(request, response){
-
-    var newIsTrainingValue = request.body.isTraining;
-
-    var name = request.body.name;
-
-    var responseBody;
-
-    if (socket != null) {
-
-        var systemMessage;
-
-        if (newIsTrainingValue && !identities.has(name)){
-
-            identities.set(name, identities.size)
-
-            systemMessage = {
-                'type' : 'ADD_PERSON',
-                'val' : name
-            }
-            socket.send(JSON.stringify(systemMessage));
-        }
-
-        systemMessage = {
-            'type' : 'TRAINING',
-            'val' : newIsTrainingValue
-        };
-        socket.send(JSON.stringify(systemMessage));
-        
-        responseBody = {
-            success : true,
-            message : "Training Active State: " + String(newIsTrainingValue)
-        };
-    } else {
-        
-        responseBody = {
-            success : false,
-            message : "Connection with OpenFace Server Failed"
-        };
-    }
-
-    response.json(responseBody);
 }

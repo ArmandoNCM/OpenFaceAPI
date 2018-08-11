@@ -78,6 +78,7 @@ class Face:
 
     def __init__(self, rep, identity):
         self.rep = rep
+        print(rep) # TODO remove this
         self.identity = identity
 
     def __repr__(self):
@@ -90,14 +91,13 @@ class Face:
 class OpenFaceServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(OpenFaceServerProtocol, self).__init__()
-        self.images = {}
-        self.training = True
+        self.faces = {}
+        self.identityNames = {}
         self.people = []
         self.svm = None
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
-        self.training = True
 
     def onOpen(self):
         print("WebSocket connection open.")
@@ -112,23 +112,38 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         print("Received {} message of length {}.".format(
             message['type'], len(raw)))
         if message['type'] == "FRAME":
-            self.processFrame(message['image'], message['identity'], message['uuid'])
-        elif message['type'] == "TRAINING":
-            self.training = message['val']
-            if not self.training:
-                self.trainSVM()
-        elif message['type'] == "ADD_PERSON":
-            self.people.append(message['val'].encode('ascii', 'ignore'))
-            print(self.people)
+
+            name = None
+            if 'name' in message:
+                name = message['name']
+            self.processFrame(message['image'], name, message['uuid'])
+            
         else:
             print("Warning: Unknown message type: {}".format(message['type']))
 
     def getData(self):
-        X = []
-        y = []
-        for img in self.images.values():
-            X.append(img.rep)
-            y.append(img.identity)
+        X = [] # Representations
+        y = [] # Identities
+
+        # for img in self.faces.values():
+        #     X.append(img.rep)
+        #     y.append(img.identity)
+
+        facesDictionary = {}
+        for img in self.faces.values():
+            representation = img.rep
+            identity = img.identity
+            if identity not in facesDictionary:
+                facesDictionary[identity] = []
+            representationList = facesDictionary[identity]
+            representationList.append(representation)
+
+        for key, value in facesDictionary.items():
+            representationCount = len(value)
+            if representationCount >= 5:
+                X.extend(value)
+                y.extend([key] * representationCount)
+        
 
         numIdentities = len(set(y + [-1])) - 1
         if numIdentities == 0:
@@ -139,7 +154,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         return (X, y)
 
     def trainSVM(self):
-        print("+ Training SVM on {} labeled images.".format(len(self.images)))
+        print("+ Training SVM on {} labeled images.".format(len(self.faces)))
         d = self.getData()
         if d is None:
             self.svm = None
@@ -159,7 +174,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             ]
             self.svm = GridSearchCV(SVC(C=1, probability=True), param_grid, cv=5).fit(X, y)
 
-    def processFrame(self, image, identity, uuid):
+    def processFrame(self, image, name, uuid):
         imgdata = base64.b64decode(image)
         imgF = StringIO.StringIO()
         imgF.write(imgdata)
@@ -183,6 +198,22 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             }
             self.sendMessage(json.dumps(message))
             return
+        elif len(bbs) > 1 and name:
+            # More than one face detected, cannot use picture to train
+            message = {
+                'message' : "More than one face detected, cannot use picture to train",
+                'uuid' : uuid
+            }
+            self.sendMessage(json.dumps(message))
+            return
+
+        identity = -1
+        if name != None:
+            if name in self.identityNames:
+                identity = self.identityNames[name]
+            else:
+                identity = len(self.identityNames)
+                self.identityNames[name] = identity
 
         for bb in bbs:
             
@@ -190,13 +221,21 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             alignedFace = align.align(args.imgDim, rgbFrame, bb, landmarks=landmarks, landmarkIndices=openface.AlignDlib.OUTER_EYES_AND_NOSE)
 
             phash = str(imagehash.phash(Image.fromarray(alignedFace)))
-            if phash in self.images:
-                identity = self.images[phash].identity
+            if phash in self.faces:
+                # Face has already been registered
+                identity = self.faces[phash].identity
             else:
+                #
                 rep = net.forward(alignedFace)
 
-                if self.training:
-                    self.images[phash] = Face(rep, identity)
+                if name and len(bbs) == 1:
+                    self.faces[phash] = Face(rep, identity)
+                    message = {
+                        'message' : "Face added",
+                        'uuid' : uuid
+                    }
+                    self.sendMessage(json.dumps(message))
+                    return
                 else:
                     if len(self.people) == 0:
                         identity = -1
@@ -223,7 +262,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     if identity not in identities:
                         identities.append(identity)
 
-        if not self.training:
+        if not name:
 
             message = {
                 'unknownFacesCount' : unknownFacesCount
