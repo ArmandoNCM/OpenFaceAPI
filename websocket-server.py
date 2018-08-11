@@ -17,7 +17,6 @@
 import os
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
-#sys.path.append(os.path.join(fileDir, "..", ".."))
 
 import txaio
 txaio.use_twisted()
@@ -34,7 +33,7 @@ import cv2
 import imagehash
 import json
 from PIL import Image
-import numpy as np
+import numpy
 import os
 import StringIO
 import urllib
@@ -46,6 +45,7 @@ from sklearn.svm import SVC
 
 import openface
 
+persistenceDir = os.path.join(fileDir, 'persistence')
 modelDir = os.path.join(fileDir, 'openface', 'models')
 dlibModelDir = os.path.join(modelDir, 'dlib')
 openfaceModelDir = os.path.join(modelDir, 'openface')
@@ -54,6 +54,8 @@ tls_crt = os.path.join(fileDir, 'certificates', 'server.crt')
 tls_key = os.path.join(fileDir, 'certificates', 'server.key')
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--statePersistence', type=str, help="Path to state persistence file.",
+                    default=os.path.join(persistenceDir, "state.json"))
 parser.add_argument('--dlibFacePredictor', type=str, help="Path to dlib's face predictor.",
                     default=os.path.join(dlibModelDir, "shape_predictor_68_face_landmarks.dat"))
 parser.add_argument('--networkModel', type=str, help="Path to Torch network model.",
@@ -87,11 +89,34 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
 
     def onOpen(self):
         print("WebSocket connection open.")
+        if os.path.exists(args.statePersistence):
+            print("Reading Saved State Data")
+            statePersistenceFile = open(args.statePersistence, 'r')
+            state = json.load(statePersistenceFile)
+            faces = state['faces']
+            for value in faces.values():
+                complexRepresentation = numpy.asanyarray(value['representation']) 
+                value['representation'] = complexRepresentation
+            self.faces = faces
+            self.identityNames = state['identityNames']
+            statePersistenceFile.close()
+            self.trainSVM()
         
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
-        facesJson = json.dumps(self.faces)
-        identityNamesJson = json.dumps(self.identityNames)
+
+        for value in self.faces.values():
+            simplifiedRepresentation = value['representation'].tolist()
+            value['representation'] = simplifiedRepresentation
+
+        stateData = {
+            'faces' : self.faces,
+            'identityNames' : self.identityNames
+        }
+        stateDataJson = json.dumps(stateData)
+        statePersistenceFile = open(args.statePersistence, 'w')
+        statePersistenceFile.write(stateDataJson)
+        statePersistenceFile.close()
 
 
 
@@ -134,8 +159,8 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         if numIdentities == 0:
             return None
 
-        X = np.vstack(X)
-        y = np.array(y)
+        X = numpy.vstack(X)
+        y = numpy.array(y)
         return (X, y)
 
     def trainSVM(self):
@@ -165,8 +190,8 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         imgF.seek(0)
         img = Image.open(imgF)
 
-        buf = np.fliplr(np.asarray(img))
-        rgbFrame = np.zeros((400, 400, 3), dtype=np.uint8)
+        buf = numpy.fliplr(numpy.asarray(img))
+        rgbFrame = numpy.zeros((400, 400, 3), dtype=numpy.uint8)
         rgbFrame[:, :, 0] = buf[:, :, 2]
         rgbFrame[:, :, 1] = buf[:, :, 1]
         rgbFrame[:, :, 2] = buf[:, :, 0]
