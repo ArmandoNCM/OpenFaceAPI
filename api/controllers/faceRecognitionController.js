@@ -1,3 +1,6 @@
+const STATUS_SERVICE_UNAVAILABLE = 503;
+const STATUS_GATEWAY_TIMEOUT = 504;
+
 exports.addFace = function(request, response){
 
     var responseServed = false;
@@ -18,57 +21,54 @@ exports.addFace = function(request, response){
 
     var responseBody;
 
-    if (socket != null) {
 
-        var systemMessage = {
-            'type': 'FRAME',
-            'image': b64Image,
-            'name' : name,
-            'uuid' : uuid
-        };
+    var systemMessage = {
+        'type': 'FRAME',
+        'image': b64Image,
+        'name' : name,
+        'uuid' : uuid
+    };
+    try {
         socket.send(JSON.stringify(systemMessage));
-
-        function onMessageReceived(data) {
-            
-            console.log("Message Received from Python: " + JSON.stringify(data));
-
-            if (!responseServed){
-                if (data.hasOwnProperty("people")){
-
-                    responseBody = {
-                        success : true,
-                        predictions : data.people,
-                        unknownFacesCount : data.unknownFacesCount
-                    };
-            
-                    response.json(responseBody);
-                    responseServed = true;
-                } else {
-                    responseBody = {
-                        success : true,
-                        message : data.message
-                    };
-            
-                    response.json(responseBody);
-                    responseServed = true;
-                }
-            }
-            registeredCallbacks.delete(uuid);
-        }
-        registeredCallbacks.set(uuid, onMessageReceived);
-    } else {
-        
+    } catch (error) {
         responseBody = {
             success : false,
             message : "Connection with OpenFace Server Failed"
         };
         if (!responseServed){
             responseServed = true;
-            response.json(responseBody);
+            response.status(STATUS_SERVICE_UNAVAILABLE).json(responseBody);
         }
-        
     }
 
+    function onMessageReceived(data) {
+        
+        console.log("Message Received from Python: " + JSON.stringify(data));
+
+        if (!responseServed){
+            if (data.hasOwnProperty("people")){
+
+                responseBody = {
+                    success : data.success,
+                    predictions : data.people,
+                    unknownFacesCount : data.unknownFacesCount
+                };
+        
+                response.json(responseBody);
+                responseServed = true;
+            } else {
+                responseBody = {
+                    success : data.success,
+                    message : data.message
+                };
+        
+                response.json(responseBody);
+                responseServed = true;
+            }
+        }
+        registeredCallbacks.delete(uuid);
+    }
+    registeredCallbacks.set(uuid, onMessageReceived);
 
     setTimeout(function () {
 
@@ -78,7 +78,7 @@ exports.addFace = function(request, response){
         };
         if (!responseServed){
             responseServed = true;
-            response.json(responseBody);
+            response.status(STATUS_GATEWAY_TIMEOUT).json(responseBody);
         }
         
     }, 5000);

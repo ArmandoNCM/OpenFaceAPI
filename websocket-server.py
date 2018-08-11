@@ -203,7 +203,8 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             # No faces found
             message = {
                 'message' : "No faces found",
-                'uuid' : uuid
+                'uuid' : uuid,
+                'success' : False
             }
             self.sendMessage(json.dumps(message))
             return
@@ -212,7 +213,8 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             print("More than one face detected, cannot use picture to train")
             message = {
                 'message' : "More than one face detected, cannot use picture to train",
-                'uuid' : uuid
+                'uuid' : uuid,
+                'success' : False
             }
             self.sendMessage(json.dumps(message))
             return
@@ -248,7 +250,8 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     self.trainSVM()
                     message = {
                         'message' : "Face added",
-                        'uuid' : uuid
+                        'uuid' : uuid,
+                        'success' : True
                     }
                     self.sendMessage(json.dumps(message))
                     return
@@ -301,6 +304,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                 message['people'] = list(people)
 
             message['uuid'] = uuid
+            message['success'] = True
             self.sendMessage(json.dumps(message))
             print("Predicted People: {}".format(str(message['people'])))
 
