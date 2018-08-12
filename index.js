@@ -32,13 +32,9 @@ spawnSync = require("child_process").spawnSync;
 
 identities = new Map();
 
-var multer  = require('multer')
-
-upload = multer({ dest: 'uploads/' })
+const formData = require("express-form-data");
 
 const express = require("express");
-
-const bodyParser = require('body-parser');
 
 const app = express();
 
@@ -46,7 +42,12 @@ const port = 27500;
 
 const faceRecognitionRoutes = require("./api/routes/faceRecognitionRoutes");
 
-app.use(bodyParser.json());
+const options = {
+    uploadDir: 'uploads',
+    autoClean: true
+};
+app.use(formData.parse(options));
+app.use(formData.union());
 
 faceRecognitionRoutes(app);
 

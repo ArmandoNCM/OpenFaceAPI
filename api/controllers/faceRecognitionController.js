@@ -5,7 +5,7 @@ exports.addFace = function(request, response){
 
     var responseServed = false;
 
-    var image = request.file;
+    var image = request.files.image;
 
     var name = request.body.name;
 
