@@ -81,6 +81,6 @@ exports.addFace = function(request, response){
             response.status(STATUS_GATEWAY_TIMEOUT).json(responseBody);
         }
         
-    }, 5000);
+    }, 15000);
 
 }
