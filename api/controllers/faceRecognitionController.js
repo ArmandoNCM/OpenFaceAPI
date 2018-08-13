@@ -1,6 +1,3 @@
-const STATUS_SERVICE_UNAVAILABLE = 503;
-const STATUS_GATEWAY_TIMEOUT = 504;
-
 exports.addFace = function(request, response){
 
     var responseServed = false;
@@ -8,6 +5,56 @@ exports.addFace = function(request, response){
     var image = request.files.image;
 
     var name = request.body.name;
+
+    var namespace = request.body.namespace;
+
+    if (!namespace){
+        responseServed = true;
+        var badRequestMessage = {
+            success : false,
+            message : "Bad Request: Missing namespace field"
+        }
+        response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
+    }
+
+    var connection;
+    var freshConnection = false;
+    if (registeredConnections.has(namespace)){
+        connection = registeredConnections.get(namespace);
+        resetTimeout(connection);
+    } else {
+        freshConnection = true;
+        try{
+            console.log("Opening new connection to Python Web Server with ID: " + namespace);
+            connection = {
+                namespace : namespace,
+                socket : new WebSocket("wss:localhost:9000", [], {headers: {namespace : namespace}}),
+                registeredCallbacks : new Map()
+            }
+            aux = connection.socket;
+            registeredConnections.set(namespace, connection);
+
+            function onIncomingMessage(message) {
+                var data = JSON.parse(message);
+                if (data.hasOwnProperty("uuid")){
+            
+                    var uuid = data.uuid;
+                    if (connection.registeredCallbacks && connection.registeredCallbacks.has(uuid)){
+            
+                        var callbackFunction = connection.registeredCallbacks.get(uuid);
+                        callbackFunction(data);
+                    }
+                }
+            }
+            connection.socket.on('message', onIncomingMessage);
+
+            resetTimeout(connection);
+
+        } catch (error) {
+            console.log(error);
+            connectionWithPythonFailed(response);
+        }
+    }
 
     var uuid = generateUUID();
 
@@ -21,23 +68,23 @@ exports.addFace = function(request, response){
 
     var responseBody;
 
+    function sendMessage(){
 
-    var systemMessage = {
-        'type': 'FRAME',
-        'image': b64Image,
-        'name' : name,
-        'uuid' : uuid
-    };
-    try {
-        socket.send(JSON.stringify(systemMessage));
-    } catch (error) {
-        responseBody = {
-            success : false,
-            message : "Connection with OpenFace Server Failed"
+        var systemMessage = {
+            'type': 'FRAME',
+            'image': b64Image,
+            'name' : name,
+            'uuid' : uuid
         };
-        if (!responseServed){
-            responseServed = true;
-            response.status(STATUS_SERVICE_UNAVAILABLE).json(responseBody);
+    
+        try {
+            connection.socket.send(JSON.stringify(systemMessage));
+        } catch (error) {
+            console.log(error);
+            if (!responseServed){
+                responseServed = true;
+                connectionWithPythonFailed(response);
+            }
         }
     }
 
@@ -66,9 +113,17 @@ exports.addFace = function(request, response){
                 responseServed = true;
             }
         }
-        registeredCallbacks.delete(uuid);
+        connection.registeredCallbacks.delete(uuid);
     }
-    registeredCallbacks.set(uuid, onMessageReceived);
+    connection.registeredCallbacks.set(uuid, onMessageReceived);
+
+    if (freshConnection) {
+
+        connection.socket.on('open', sendMessage);
+    } else {
+
+        sendMessage();
+    }
 
     setTimeout(function () {
 

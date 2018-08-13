@@ -1,36 +1,42 @@
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+STATUS_SERVICE_UNAVAILABLE = 503;
+STATUS_GATEWAY_TIMEOUT = 504;
+STATUS_BAD_REQUEST = 400;
 
-const WebSocket = require("ws");
-
-socket = new WebSocket("wss:localhost:9000");
+WebSocket = require("ws");
 
 const uuidv4 = require('uuid/v4');
 
 generateUUID = uuidv4;
 
-registeredCallbacks = new Map();
+registeredConnections = new Map();
 
-function onMessageReceived(message) {
-
-    var data = JSON.parse(message);
-    if (data.hasOwnProperty("uuid")){
-
-        var uuid = data.uuid;
-        if (registeredCallbacks.has(uuid)){
-
-            var callbackFunction = registeredCallbacks.get(uuid);
-            callbackFunction(data);
-        }
+resetTimeout = function(connection){
+    if (connection.timeOut){
+        clearTimeout(connection.timeOut);
     }
+
+    connection.timeOut = setTimeout(function(){
+        connection.socket.terminate();
+        connection.registeredCallbacks.clear();
+        if (registeredConnections.has(connection.id)){
+            registeredConnections.delete(connection.id);
+        }
+    }, 120000)
 }
 
-socket.on('message', onMessageReceived);
+connectionWithPythonFailed = function(response){
+
+    responseBody = {
+        success : false,
+        message : "Connection with OpenFace Server Failed"
+    }
+    response.status(STATUS_SERVICE_UNAVAILABLE).json(responseBody);
+}
 
 fs = require("fs");
 
 spawnSync = require("child_process").spawnSync;
-
-identities = new Map();
 
 const formData = require("express-form-data");
 

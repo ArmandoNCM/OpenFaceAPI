@@ -54,8 +54,6 @@ tls_crt = os.path.join(fileDir, 'certificates', 'server.crt')
 tls_key = os.path.join(fileDir, 'certificates', 'server.key')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--statePersistence', type=str, help="Path to state persistence file.",
-                    default=os.path.join(persistenceDir, "state.json"))
 parser.add_argument('--dlibFacePredictor', type=str, help="Path to dlib's face predictor.",
                     default=os.path.join(dlibModelDir, "shape_predictor_68_face_landmarks.dat"))
 parser.add_argument('--networkModel', type=str, help="Path to Torch network model.",
@@ -85,13 +83,15 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
         self.svm = None
 
     def onConnect(self, request):
-        print("Client connecting: {0}".format(request.peer))
+        self.namespace = request.headers['namespace']
+        self.statePersistencePath = os.path.join(persistenceDir, "{}.json".format(self.namespace))
+        print("Client connecting: {0}, Namespace:{1}".format(request.peer, self.namespace))
 
     def onOpen(self):
         print("WebSocket connection open.")
-        if os.path.exists(args.statePersistence):
+        if os.path.exists(self.statePersistencePath):
             print("Reading Saved State Data")
-            statePersistenceFile = open(args.statePersistence, 'r')
+            statePersistenceFile = open(self.statePersistencePath, 'r')
             state = json.load(statePersistenceFile)
             faces = state['faces']
             for value in faces.values():
@@ -114,7 +114,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             'identityNames' : self.identityNames
         }
         stateDataJson = json.dumps(stateData)
-        statePersistenceFile = open(args.statePersistence, 'w')
+        statePersistenceFile = open(self.statePersistencePath, 'w')
         statePersistenceFile.write(stateDataJson)
         statePersistenceFile.close()
 
@@ -131,6 +131,13 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             if 'name' in message:
                 name = message['name']
             self.processFrame(message['image'], name, message['uuid'])
+
+        elif message['type'] == "PING":
+            message = {
+                'message' : message['message'],
+                'success' : True
+            }
+            self.sendMessage(json.dumps(message))
             
         else:
             print("Warning: Unknown message type: {}".format(message['type']))
