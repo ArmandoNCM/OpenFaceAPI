@@ -4,7 +4,7 @@ killall python
 killall npm
 killall node
 
-python websocket-server.py --threshold 0.7 >> logs/python-server.log &
+python websocket-server.py --threshold 0.75 >> logs/python-server.log &
 
 sleep 15
 

@@ -7,13 +7,3 @@ curl -X POST -F namespace="TestNamespace" -F name="SteveCarell" -F image=@2.jpg 
 curl -X POST -F namespace="TestNamespace" -F name="SteveCarell" -F image=@3.jpg localhost:27500/openface
 curl -X POST -F namespace="TestNamespace" -F name="SteveCarell" -F image=@4.jpg localhost:27500/openface
 curl -X POST -F namespace="TestNamespace" -F name="SteveCarell" -F image=@5.jpg localhost:27500/openface
-
-cd ..
-
-cd ./john_cena
-
-curl -X POST -F namespace="TestNamespace" -F name="JohnCena" -F image=@1.jpg localhost:27500/openface
-curl -X POST -F namespace="TestNamespace" -F name="JohnCena" -F image=@2.jpg localhost:27500/openface
-curl -X POST -F namespace="TestNamespace" -F name="JohnCena" -F image=@3.jpg localhost:27500/openface
-curl -X POST -F namespace="TestNamespace" -F name="JohnCena" -F image=@4.jpg localhost:27500/openface
-curl -X POST -F namespace="TestNamespace" -F name="JohnCena" -F image=@5.jpg localhost:27500/openface
