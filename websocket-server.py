@@ -249,7 +249,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
                     }
                     self.trainSVM()
                     message = {
-                        'message' : "Face added",
+                        'message' : "Face added, Child ID: {}".format(name),
                         'uuid' : uuid,
                         'success' : True
                     }
@@ -306,7 +306,10 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             message['uuid'] = uuid
             message['success'] = True
             self.sendMessage(json.dumps(message))
-            print("Predicted People: {}".format(str(message['people'])))
+            peopleOutput = []
+            if 'people' in message:
+                peopleOutput = message['people']
+            print("Predicted People: {}".format(str(peopleOutput)))
 
 def main(reactor):
     log.startLogging(sys.stdout)
