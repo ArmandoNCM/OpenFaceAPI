@@ -54,6 +54,8 @@ tls_crt = os.path.join(fileDir, 'certificates', 'server.crt')
 tls_key = os.path.join(fileDir, 'certificates', 'server.key')
 
 parser = argparse.ArgumentParser()
+parser.add_argument('--noiseSeed', type=str, help="Path to state persistence file.",
+                    default=os.path.join(fileDir, "noise.json"))
 parser.add_argument('--dlibFacePredictor', type=str, help="Path to dlib's face predictor.",
                     default=os.path.join(dlibModelDir, "shape_predictor_68_face_landmarks.dat"))
 parser.add_argument('--networkModel', type=str, help="Path to Torch network model.",
@@ -89,18 +91,36 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
 
     def onOpen(self):
         print("WebSocket connection open.")
-        if os.path.exists(self.statePersistencePath):
-            print("Reading Saved State Data")
-            statePersistenceFile = open(self.statePersistencePath, 'r')
+
+        try:
+            print("Reading Noise Seed Data")
+            statePersistenceFile = open(args.noiseSeed, 'r')
             state = json.load(statePersistenceFile)
             faces = state['faces']
             for value in faces.values():
                 complexRepresentation = numpy.asanyarray(value['representation']) 
                 value['representation'] = complexRepresentation
-            self.faces = faces
-            self.identityNames = state['identityNames']
+            self.noiseFaces = faces
+            self.noiseIdentityNames = state['identityNames']
             statePersistenceFile.close()
             self.trainSVM()
+            
+            if os.path.exists(self.statePersistencePath):
+                print("Reading Saved State Data")
+                statePersistenceFile = open(self.statePersistencePath, 'r')
+                state = json.load(statePersistenceFile)
+                faces = state['faces']
+                for value in faces.values():
+                    complexRepresentation = numpy.asanyarray(value['representation']) 
+                    value['representation'] = complexRepresentation
+                self.faces = faces
+                self.identityNames = state['identityNames']
+                statePersistenceFile.close()
+                self.trainSVM()
+            
+        except RuntimeError as e:
+            print("Failed")
+            print(e)
         
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
@@ -145,6 +165,12 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
     def getData(self):
         X = [] # Representations
         y = [] # Identities
+
+        for key, value in self.noiseFaces.items():
+            self.faces[key] = value
+        
+        for key, value in self.noiseIdentityNames.items():
+            self.identityNames[key] = value
 
         facesDictionary = {}
         for img in self.faces.values():
@@ -243,7 +269,18 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             phash = str(imagehash.phash(Image.fromarray(alignedFace)))
             if phash in self.faces:
                 # Face has already been registered
-                identity = self.faces[phash]['identity']
+                if name:
+                    message = {
+                        'message' : "Face has already been added",
+                        'success' : False,
+                        'uuid' : uuid
+                    }
+                    self.sendMessage(json.dumps(message))
+                    return
+                else:
+                    identity = self.faces[phash]['identity']
+                    identities.append(identity)
+
             else:
                 #
                 representation = net.forward(alignedFace)
