@@ -22,12 +22,18 @@ exports.addFace = function(request, response){
     var freshConnection = false;
     if (registeredConnections.has(namespace)){
         connection = registeredConnections.get(namespace);
-        resetTimeout(connection);
-    } else {
+        if (connection.isAlive){
+            resetTimeout(connection);
+        } else {
+            connection = null;
+        }
+    } 
+    if (connection == null) {
         freshConnection = true;
         try{
             console.log("Opening new connection to Python Web Server with ID: " + namespace);
             connection = {
+                isAlive : true,
                 namespace : namespace,
                 socket : new WebSocket("wss:localhost:9000", [], {headers: {namespace : namespace}}),
                 registeredCallbacks : new Map()

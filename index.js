@@ -17,12 +17,13 @@ resetTimeout = function(connection){
     }
 
     connection.timeOut = setTimeout(function(){
-        connection.socket.terminate();
+        connection.isAlive = false;
+        connection.socket.close();
         connection.registeredCallbacks.clear();
         if (registeredConnections.has(connection.id)){
             registeredConnections.delete(connection.id);
         }
-    }, 120000)
+    }, 60000)
 }
 
 connectionWithPythonFailed = function(response){
