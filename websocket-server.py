@@ -123,7 +123,7 @@ class OpenFaceServerProtocol(WebSocketServerProtocol):
             print(e)
         
     def onClose(self, wasClean, code, reason):
-        print("WebSocket connection closed: {0}".format(reason))
+        print("WebSocket connection with namespace {0} closed: {1}".format(self.namespace, reason))
 
         for value in self.faces.values():
             simplifiedRepresentation = value['representation'].tolist()
