@@ -15,6 +15,7 @@ exports.addFace = function(request, response){
             message : "Missing namespace field"
         }
         response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
+        console.log("Received bad request with missing 'namespace' field");
 	    return;
     }
     if (!image){
@@ -24,6 +25,7 @@ exports.addFace = function(request, response){
             message : "Missing image field"
         }
         response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
+        console.log("Received bad request with missing 'image' field");
 	    return;
     }
 
