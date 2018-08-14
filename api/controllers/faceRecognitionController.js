@@ -1,5 +1,7 @@
 exports.addFace = function(request, response){
 
+    console.log("Remote IP Address: " + request.connection.remoteAddress);
+
     var responseServed = false;
 
     var image = request.files.image;
