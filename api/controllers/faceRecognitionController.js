@@ -1,7 +1,5 @@
 exports.addFace = function(request, response){
 
-    console.log("Remote IP Address: " + request.connection.remoteAddress);
-
     var responseServed = false;
 
     var image = request.files.image;
@@ -18,6 +16,7 @@ exports.addFace = function(request, response){
         }
         response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
         console.log("Received bad request with missing 'namespace' field");
+        console.log("Remote IP Address: " + request.connection.remoteAddress);
 	    return;
     }
     if (!image){
@@ -28,6 +27,7 @@ exports.addFace = function(request, response){
         }
         response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
         console.log("Received bad request with missing 'image' field");
+        console.log("Remote IP Address: " + request.connection.remoteAddress);
 	    return;
     }
 
