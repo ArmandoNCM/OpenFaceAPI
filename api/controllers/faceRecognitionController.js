@@ -15,6 +15,7 @@ exports.addFace = function(request, response){
             message : "Bad Request: Missing namespace field"
         }
         response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
+	return;
     }
 
     var connection;
