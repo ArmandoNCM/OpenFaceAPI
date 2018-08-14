@@ -12,10 +12,19 @@ exports.addFace = function(request, response){
         responseServed = true;
         var badRequestMessage = {
             success : false,
-            message : "Bad Request: Missing namespace field"
+            message : "Missing namespace field"
         }
         response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
-	return;
+	    return;
+    }
+    if (!image){
+        responseServed = true;
+        var badRequestMessage = {
+            success : false,
+            message : "Missing image field"
+        }
+        response.status(STATUS_BAD_REQUEST).json(badRequestMessage);
+	    return;
     }
 
     var connection;
